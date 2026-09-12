@@ -39,7 +39,13 @@ export class Db {
     mkdirSync(dirname(dbPath), { recursive: true });
     const { DatabaseSync } = loadSqlite();
     this.db = new DatabaseSync(dbPath);
+    // Hardening for concurrent agent execution (C01): WAL allows readers and
+    // writers to coexist, NORMAL sync balances durability vs. latency for a
+    // local dev DB, and a 5s busy_timeout prevents SQLITE_BUSY crashes when
+    // multiple workers touch the queue at once.
     this.db.exec("PRAGMA journal_mode = WAL;");
+    this.db.exec("PRAGMA synchronous = NORMAL;");
+    this.db.exec("PRAGMA busy_timeout = 5000;");
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.db.exec(SCHEMA);
   }
