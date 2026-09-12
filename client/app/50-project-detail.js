@@ -157,7 +157,7 @@
       const sel = $("#p-chat-model");
       if (sel && !sel.dataset.touched) {
         const prev = sel.value;
-        sel.innerHTML = `<option value="">Auto (best per benchmark)</option>` + active.map((m) => {
+        sel.innerHTML = `<option value="">Auto — spread across ${active.length} model(s) (round-robin / least-loaded)</option>` + active.map((m) => {
           const s = stats.get(m.id);
           const score = s && typeof s.score === "number" ? s.score.toFixed(2) : "—";
           const tag = s ? `score ${score} · ${s.p95LatencyMs||s.avgLatencyMs||"?"}ms` : "no data";
@@ -280,7 +280,8 @@
       const attachments = pending.slice(); pending = []; renderChatAttachments();
       const body = {
         role: "user", content: content || "(attachment)",
-        modelId: $("#p-chat-model")?.value || undefined,
+        // "" is meaningful: it means "no pin, let the balancer rotate".
+        modelId: $("#p-chat-model")?.value ?? undefined,
         executionMode: $("#p-chat-mode")?.value || "chat",
         agentType: $("#p-chat-agent")?.value || undefined,
         temperature: Number($("#p-chat-temp")?.value) || 0.3,

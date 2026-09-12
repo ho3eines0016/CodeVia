@@ -220,7 +220,8 @@
   function renderBenchmarkTab() {
     const body = $("#models-tab-body");
     if (!body) return;
-    body.innerHTML = `<div id="model-bench-card"><div class="card card-body"><div class="repo-empty">Loading benchmark…</div></div></div>`;
+    body.innerHTML = `<div id="model-routing-card"><div class="card card-body"><div class="repo-empty">Loading load distribution…</div></div></div><div id="model-bench-card"><div class="card card-body"><div class="repo-empty">Loading benchmark…</div></div></div>`;
+    renderRoutingCard();
     renderBenchmarkCard();
   }
 
