@@ -4,9 +4,22 @@
 
 A **multi-project, GitHub-centric, multi-agent, multi-model, Telegram-controlled** AI engineering platform under active development. CodeVia provides agent definitions and execution paths for research, architecture, backend/frontend development, UI/UX, database, DevOps, QA, security, code review, documentation, debugging, refactoring, performance, and release; not all roles have a complete autonomous implementation.
 
-> **Readiness warning (2026-09-11):** the [historical completeness audit](docs/PIPELINE_AUDIT.md) reproduced 18 targeted gaps before the repository-first work. This update addresses project-state persistence/reuse and **per-account isolation** (GitHub credentials, projects, models and providers — see [docs/MULTI_USER_ISOLATION.md](docs/MULTI_USER_ISOLATION.md)); it is **not** a complete security, QA or queue-recovery remediation. Global admin feeds (notifications, audit log) are still shared, so review the [remaining gaps](docs/MULTI_USER_ISOLATION.md#6-known-remaining-gaps-not-fixed-here) before a sensitive multi-user deployment.
+> **Readiness note (2026-09-12):** the [historical completeness audit](docs/PIPELINE_AUDIT.md) reproduced 18 targeted gaps before the repository-first work; all 18 are closed. **Per-account isolation** covers GitHub credentials, projects, models/providers, and every by-id entity route (`/tasks/:id`, `/runs/:id`, `/conversations/:id`, `/approvals/:id`) is now gated directly at the handler, not just indirectly through a global hook — see [docs/MULTI_USER_ISOLATION.md](docs/MULTI_USER_ISOLATION.md). Operator-level admin feeds and settings stay account-independent **by design**. Review the [remaining gaps table](docs/MULTI_USER_ISOLATION.md#6-known-remaining-gaps-not-fixed-here) before a sensitive multi-user deployment.
 
-> **Repository-backed project knowledge — not yet complete.** The platform stores full skills, agents/prompts and prompt history, rules, memory, workflows, tasks, runs and conversations under **`CodeVia/`**. Standard initialization/reuse and many restore paths are tested, but the [current repository-state audit](docs/REPOSITORY_STATE_AUDIT.md) reproduces **8 remaining gaps** in actual context consumption, terminal history, deletion/copy, legacy migration and error handling. Do not assume every path is repository-authoritative yet. Credentials, accounts and live queue state remain local; keep a database backup, particularly before migrating legacy projects. See the [format and usage guide](docs/REPOSITORY_STATE.md).
+> **Repository-backed project knowledge.** The platform stores full skills, agents/prompts and prompt history, rules, memory, workflows, tasks, runs and conversations under **`CodeVia/`**. The [repository-state audit](docs/REPOSITORY_STATE_AUDIT.md) previously reproduced 8 gaps (context consumption, terminal history, deletion/copy, legacy migration, error handling); **all 8 are now closed** and `scripts/audit-repository-state.mjs` exits `0`. Credentials, accounts and live queue state remain local by design; keep a database backup, particularly before migrating legacy projects. See the [format and usage guide](docs/REPOSITORY_STATE.md).
+
+### Gap status at a glance (2026-09-12)
+
+| ID | Gap | Status |
+|----|-----|--------|
+| R01–R08 | Repository-state audit gaps (context consumption, terminal history, tombstones, legacy migration, sync retry, fail-closed schema) | ✅ Closed — `scripts/audit-repository-state.mjs` exits 0 |
+| S01 | By-id routes (`/runs/:id`, `/tasks/:id`, `/conversations/:id`, `/approvals/:id`) gated only indirectly | ✅ Closed — direct `canAccessEntity` gate in every handler + regression tests |
+| S02 | Runtime dependency advisories (npm audit high/moderate) | ✅ Closed — 0 vulnerabilities (`npm audit --omit=dev`), audited in CI |
+| S03 | Admin-level feeds shared across accounts | ⚠️ Operator endpoints by design; project-scoped feeds are per-account |
+| S04 | SPA without a build step | 🗺️ Roadmap — incremental React/Vite migration planned |
+| S05 | SQLite for sensitive multi-user deployments | 🗺️ Roadmap — Postgres adapter behind the repository interface |
+| S06 | Rate limiting + structured logging | ✅ Closed — per-IP limiter (`RATE_LIMIT_PER_MINUTE`), redacted JSON logs, HTTP access log with correlation ids |
+| D01–D03 | Docs: CI badge owner, `infrastruure` typo, mixed FA/EN docs | ✅ Typo fixed; badge targets the canonical upstream repo; docs stay bilingual by design |
 
 ---
 
@@ -50,7 +63,7 @@ npm run seed
 ### Tests & build
 
 ```bash
-npm test            # unit + integration + end-to-end (675 tests)
+npm test            # unit + integration + end-to-end (707 tests)
 npm run smoke       # one-command live verification (33 checks, isolated port + temp DB)
 npm run typecheck   # strict TypeScript
 npm run build       # compile + copy static UI into dist/
@@ -97,7 +110,7 @@ Web/API (Fastify + Swagger + Socket.io)
     Tools → GitHub / Model(s) / Telegram / Memory
 ```
 
-Logical layers are split into `domain`, `application` (agents/workflow), `infrastruure` (db/github/telegram), `ai`, `tools`, `workers`, `http`.
+Logical layers are split into `domain`, `application` (agents/workflow), `infrastructure` (db/github/telegram), `ai`, `tools`, `workers`, `http`.
 
 See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full architecture document (domain model, database model, security model, deployment model).
 
@@ -154,7 +167,9 @@ Features: responsive, dark/light mode, **RTL/Persian-friendly**, command palette
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues & fixes |
 | [docs/SYSTEM_BACKUP.md](docs/SYSTEM_BACKUP.md) | Full runtime backup to GitHub, scheduling, restore |
 
-Governance: [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
+> Documentation is intentionally bilingual: user-facing guides and audits are written in Persian (فارسی), engineering/architecture references in English. Treat both languages as equally authoritative.
+
+Governance: [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [Issue templates & PR checklist](.github/)
 
 ---
 

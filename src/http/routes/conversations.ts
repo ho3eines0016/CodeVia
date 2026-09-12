@@ -789,25 +789,35 @@ export function registerConversationRoutes(app: FastifyInstance, container: Cont
     return reply;
   });
 
-  app.post("/conversations/:id/summarize", { schema: { tags: ["conversations"] } }, async (req) => {
+  app.post("/conversations/:id/summarize", { schema: { tags: ["conversations"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const conv = container.conversationRepo.findById(id);
-    if (!conv) return { error: "conversation not found" };
-    if ((conv.data.messages ?? []).length === 0) return { summary: "", method: "heuristic" };
+    // (S01) Direct ownership gate, same rule as the read/message routes.
+    const conv = loadAllowedConv(req, id);
+    if (!conv) {
+      reply.code(404);
+      return { error: "conversation not found" };
+    }
+    if ((conv.messages ?? []).length === 0) return { summary: "", method: "heuristic" };
     const result = await summarizeConversation(
       container,
-      conv.data,
-      conv.data.projectId ? container.projectRepo.findById(conv.data.projectId)?.data.ownerId : undefined,
+      conv,
+      conv.projectId ? container.projectRepo.findById(conv.projectId)?.data.ownerId : undefined,
     );
     container.conversationRepo.updateSummary(id, result.summary);
     persistAsync(container.conversationRepo.findById(id)?.data);
     return result;
   });
 
-  app.delete("/conversations/:id", { schema: { tags: ["conversations"] } }, async (req) => {
+  app.delete("/conversations/:id", { schema: { tags: ["conversations"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const conv = container.conversationRepo.findById(id)?.data;
-    const p = conv?.projectId ? container.projectRepo.findById(conv.projectId)?.data : undefined;
+    // (S01) Direct ownership gate: deleting must not reach a conversation
+    // (and its repository tombstone) that belongs to another account.
+    const conv = loadAllowedConv(req, id);
+    if (!conv) {
+      reply.code(404);
+      return { error: "conversation not found" };
+    }
+    const p = conv.projectId ? container.projectRepo.findById(conv.projectId)?.data : undefined;
     if (p) await container.projectFiles.tombstone(p, container.projectFiles.pathFor(p, "conversation", id));
     container.conversationRepo.deleteById(id);
     return { ok: true };

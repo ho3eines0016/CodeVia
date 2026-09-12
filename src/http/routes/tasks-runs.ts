@@ -3,7 +3,7 @@ import { live } from "../../realtime/live.js";
 import { executionTask } from "../../agents/execution.js";
 import type { Container } from "../../app/container.js";
 import { matter } from "../../github/project-files.js";
-import { accessibleProjectIds } from "../project-access.js";
+import { accessibleProjectIds, canAccessEntity } from "../project-access.js";
 import { resolveRequestUser } from "../auth.js";
 
 export function registerTaskRoutes(app: FastifyInstance, container: Container): void {
@@ -35,15 +35,23 @@ export function registerTaskRoutes(app: FastifyInstance, container: Container): 
     return task;
   });
 
-  app.get("/tasks/:id", { schema: { tags: ["tasks"] } }, async (req) => {
+  app.get("/tasks/:id", { schema: { tags: ["tasks"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    return container.taskRepo.findById(id)?.data ?? { error: "task not found" };
+    const task = container.taskRepo.findById(id)?.data;
+    // (S01) Direct ownership gate: the global project-state hook only gates
+    // indirectly via the entity's projectId; an entity with no project slipped
+    // through. Foreign ids answer 404 — same as missing ones.
+    if (task && !canAccessEntity(req, container, task)) {
+      reply.code(404);
+      return { error: "task not found" };
+    }
+    return task ?? { error: "task not found" };
   });
 
   app.patch("/tasks/:id", { schema: { tags: ["tasks"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const rec = container.taskRepo.findById(id);
-    if (!rec) {
+    if (!rec || !canAccessEntity(req, container, rec.data)) {
       reply.code(404);
       return { error: "task not found" };
     }
@@ -68,7 +76,8 @@ export function registerTaskRoutes(app: FastifyInstance, container: Container): 
 
   app.delete("/tasks/:id", { schema: { tags: ["tasks"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    if (!container.taskRepo.findById(id)) {
+    const existing = container.taskRepo.findById(id)?.data;
+    if (!existing || !canAccessEntity(req, container, existing)) {
       reply.code(404);
       return { error: "task not found" };
     }
@@ -96,7 +105,9 @@ export function registerTaskRoutes(app: FastifyInstance, container: Container): 
 
   app.post("/tasks/:id/run", { schema: { tags: ["tasks"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    if (!container.taskRepo.findById(id)) return reply.code(404).send({ error: "task not found" });
+    const existing = container.taskRepo.findById(id)?.data;
+    if (!existing || !canAccessEntity(req, container, existing))
+      return reply.code(404).send({ error: "task not found" });
     let task;
     try {
       task = executionTask(container.taskRepo, id);
@@ -140,10 +151,13 @@ export function registerTaskRoutes(app: FastifyInstance, container: Container): 
     return { taskId: task.id, requestedTaskId: id, jobId: job.id };
   });
 
-  app.post("/tasks/:id/cancel", { schema: { tags: ["tasks"] } }, async (req) => {
+  app.post("/tasks/:id/cancel", { schema: { tags: ["tasks"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const t = container.taskRepo.findById(id);
-    if (!t) return { error: "task not found" };
+    if (!t || !canAccessEntity(req, container, t.data)) {
+      reply.code(404);
+      return { error: "task not found" };
+    }
     if (["succeeded", "failed", "cancelled"].includes(t.data.status)) {
       // (R07) A final task may still owe its Git write from an earlier outage:
       // retry the pending sync instead of permanently pretending Git is in sync.
@@ -183,16 +197,25 @@ export function registerTaskRoutes(app: FastifyInstance, container: Container): 
     return runs;
   });
 
-  app.get("/runs/:id", { schema: { tags: ["runs"] } }, async (req) => {
+  app.get("/runs/:id", { schema: { tags: ["runs"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    return container.runRepo.findById(id)?.data ?? { error: "run not found" };
+    const run = container.runRepo.findById(id)?.data;
+    // (S01) Direct ownership gate — see GET /tasks/:id.
+    if (run && !canAccessEntity(req, container, run)) {
+      reply.code(404);
+      return { error: "run not found" };
+    }
+    return run ?? { error: "run not found" };
   });
 
   // AI Run Console — observable steps (never exposes chain-of-thought).
-  app.get("/runs/:id/console", { schema: { tags: ["runs"] } }, async (req) => {
+  app.get("/runs/:id/console", { schema: { tags: ["runs"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const r = container.runRepo.findById(id);
-    if (!r) return { error: "run not found" };
+    if (!r || !canAccessEntity(req, container, r.data)) {
+      reply.code(404);
+      return { error: "run not found" };
+    }
     return {
       runId: r.data.id,
       taskId: r.data.taskId,

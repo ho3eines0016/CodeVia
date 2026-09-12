@@ -39,11 +39,15 @@ The platform is built to land each phase as a horizontally-functional baseline, 
 - **Worker `github.op` jobs** — comment/issue/PR update/branch/merge (merge requires an approval id).
 - **HTTP hardening** — security headers + per-IP rate limit (`RATE_LIMIT_PER_MINUTE`, `SECURITY_HEADERS`), health/webhooks exempt.
 - **Memory bug fix** — local memory `search()` without `types` never matched (iterated `Object.keys([...])`).
+- **Direct entity ownership gates (S01)** — every by-id route (`/tasks/:id`, `/runs/:id`, `/conversations/:id`, `/approvals/:id`) checks `canAccessEntity` at the handler instead of relying on the global hook alone; entities with no project are hidden from signed-in accounts (`src/tests/entity-access-gate.test.ts`).
+- **Structured logging + secret redaction (S06)** — per-response access log with correlation ids; credential-looking keys are redacted before any log sink.
+- **Clean runtime dependency audit (S02)** — `@fastify/swagger-ui` → `^6.1.1` (0 npm-audit vulnerabilities), enforced in CI with `npm audit --omit=dev --audit-level=high`.
 
 ## Extension points (next)
 
 - **Drag-&-drop workflow canvas** — the builder page is form/graph based today; free-form dragging is the next step.
-- **Postgres adapter** — swap `Db` (repository abstraction already isolates the change).
+- **Incremental SPA migration (S04)** — the UI is a no-build-step vanilla SPA assembled from `client/app/*`; the plan is a gradual move to React + Vite + TypeScript in `web/`, starting with the highest-risk pages (Run Console, Workflows) and sharing the zod domain schemas.
+- **Postgres adapter (S05)** — swap `Db` (repository abstraction already isolates the change) for sensitive multi-user deployments; SQLite stays the demo/single-user default.
 - **Redis-backed queue** for multi-worker scale-out.
 - **Scheduler service** for periodic jobs (checks, budget resets, memory rehydration).
 - **GitHub App installation-token exchange** for per-install auth.
