@@ -102,6 +102,28 @@ export async function buildServer(container: Container): Promise<BuildServerResu
     reply.header("x-correlation-id", cid);
     runWithCorrelation(cid, () => done());
   });
+
+  // Structured HTTP access log (S06): one JSON line per response with the
+  // request's correlation id, so web, Telegram and worker traces line up.
+  // The query string is never logged (OAuth callbacks carry `code=…` there);
+  // `redactSensitive` guards the rest. Socket.io polling and static assets
+  // are skipped to keep the stream meaningful. Disabled under test unless a
+  // suite opts in, so 700 tests don't drown the output.
+  app.addHook("onResponse", async (request, reply) => {
+    const env = getEnv();
+    if (env.NODE_ENV === "test" && process.env.CODEVIA_HTTP_LOG !== "1") return;
+    const path = request.url.split("?")[0];
+    if (path.startsWith("/socket.io") || (request.method === "GET" && /\.[a-z0-9]{2,5}$/i.test(path))) return;
+    logger.info("http request", {
+      component: "http",
+      correlationId: String(reply.getHeader("x-correlation-id") ?? ""),
+      method: request.method,
+      path,
+      status: reply.statusCode,
+      durationMs: Math.round(reply.elapsedTime * 100) / 100,
+      ip: request.ip,
+    });
+  });
   registerHardening(app);
   await app.register(swagger, {
     openapi: {

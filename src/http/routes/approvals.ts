@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { Container } from "../../app/container.js";
 import type { ApprovalStatus } from "../../approvals/service.js";
 import { resolveRequestUser } from "../auth.js";
-import { accessibleProjectIds } from "../project-access.js";
+import { accessibleProjectIds, canAccessEntity } from "../project-access.js";
 
 /**
  * Human-in-the-loop approvals: list what is waiting, approve/reject from the
@@ -23,7 +23,9 @@ export function registerApprovalRoutes(app: FastifyInstance, container: Containe
   app.get("/approvals/:id", { schema: { tags: ["approvals"] } }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const a = container.approvals.get(id);
-    if (!a) {
+    // (S01) Direct ownership gate: an approval without a resolvable,
+    // accessible project reads as 404 for a signed-in foreign account.
+    if (!a || !canAccessEntity(req, container, a)) {
       reply.code(404);
       return { error: "approval not found" };
     }
@@ -34,6 +36,11 @@ export function registerApprovalRoutes(app: FastifyInstance, container: Containe
     app.post(`/approvals/:id/${decision}`, { schema: { tags: ["approvals"] } }, async (req, reply) => {
       const { id } = req.params as { id: string };
       const body = (req.body ?? {}) as { note?: string };
+      const existing = container.approvals.get(id);
+      if (!existing || !canAccessEntity(req, container, existing)) {
+        reply.code(404);
+        return { error: "approval not found" };
+      }
       const { user } = resolveRequestUser(req, container);
       try {
         return container.approvals.decide(id, decision, {

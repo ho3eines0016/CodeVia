@@ -1,0 +1,20 @@
+# Every change needs a maintainer review; security-sensitive areas are
+# listed explicitly so they are never merged casually.
+
+* @ho3eines
+
+# Access control, authentication and isolation rules
+/src/http/auth.ts @ho3eines
+/src/http/project-access.ts @ho3eines
+/src/http/project-state-hook.ts @ho3eines
+/src/auth/ @ho3eines
+
+# Repository-state contract (CodeVia/ as the source of truth)
+/src/github/project-state.ts @ho3eines
+/src/github/project-codec.ts @ho3eines
+/src/agents/project-state.ts @ho3eines
+
+# Audits and CI gates
+/scripts/audit-pipeline.mjs @ho3eines
+/scripts/audit-repository-state.mjs @ho3eines
+/.github/workflows/ @ho3eines

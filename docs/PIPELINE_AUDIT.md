@@ -34,6 +34,8 @@
 محیط اجرای بررسی: Node `v22.22.3` و npm `10.9.8`. لاگ تست‌ها در `/home/user/codevia-deep-baseline.log` و لاگ smoke در `/home/user/codevia-deep-smoke.log` ثبت شده‌اند.
 
 > **بررسی دوباره پس از رفع (۲۰۲۶-۰۹-۱۲):** `npm test` → **۵۳ فایل / ۶۹۸ تست موفق**؛ `npm run typecheck`، `npm run lint`، `npm run format:check`، `npm run check:app` و `npm run build` همه موفق؛ `scripts/audit-pipeline.mjs` → **خروجی `0` (۱۸/۱۸ پاس)**؛ `scripts/audit-repository-state.mjs` → خروجی `0`.
+>
+> **رفع هشدار وابستگی‌ها (۲۰۲۶-۰۹-۱۲):** `@fastify/swagger-ui` به `^6.1.1` ارتقا یافت (همان نسخهٔ پیشنهادی ابزار ممیزی) تا `@fastify/static` تو‌در‌تو به نسخهٔ وصله‌شده برسد. `npm audit --omit=dev` اکنون **۰ آسیب‌پذیری** گزارش می‌کند و یک گام `npm audit --omit=dev --audit-level=high` به CI اضافه شده است.
 
 ## انطباق با درخواست اصلی
 
@@ -203,6 +205,8 @@
 خروجی runtime-only ممیزی npm دو بستهٔ آسیب‌پذیر را گزارش کرد: `@fastify/static` تو‌در‌تو با شدت **high** و `@fastify/swagger-ui` با شدت **moderate**. static مستقیم پروژه از نسخهٔ جدیدتر استفاده می‌کند، اما نسخهٔ وابستهٔ swagger-ui هنوز در درخت نصب وجود دارد.
 
 شناسه‌های advisory: `GHSA-8pvw-jcv7-9cmj` و `GHSA-83w8-p2f5-377r`. پیشنهاد ابزار ارتقای swagger-ui به `6.1.1` است که نسبت به نسخهٔ فعلی **semver-major** محسوب می‌شود؛ هیچ `audit fix --force` یا ارتقای بدون تست انجام نشده است. این خروجی، وجود نسخه‌های مشمول advisory را نشان می‌دهد؛ بهره‌برداری عملی از این دو advisory در این برنامه جداگانه آزمون نشده است. فایل خام: `/home/user/codevia-runtime-audit.json`.
+
+> **بسته شد (۲۰۲۶-۰۹-۱۲):** ارتقا دقیقاً به همان نسخهٔ پیشنهادی (`@fastify/swagger-ui@^6.1.1`) همراه با اجرای کامل تست‌ها، بیلد و smoke انجام شد؛ `npm audit --omit=dev` → **۰ آسیب‌پذیری**. گام `npm audit --omit=dev --audit-level=high` در CI از بازگشت این وضعیت جلوگیری می‌کند.
 
 ## ترتیب پیشنهادی تکمیل و معیار خروج
 

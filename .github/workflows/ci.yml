@@ -32,6 +32,24 @@ jobs:
       - name: SPA bundle freshness (client/app → public/app.js)
         run: npm run check:app
 
+  deps-audit:
+    name: Dependency audit (runtime)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      # A platform that stores GitHub tokens and provider keys must not ship
+      # known-vulnerable runtime dependencies. Advisories below "high" are
+      # reported but do not block; moderate-only noise should still be triaged.
+      - name: npm audit (runtime dependencies)
+        run: npm audit --omit=dev --audit-level=high
+
   test:
     name: Test (Vitest)
     runs-on: ubuntu-latest

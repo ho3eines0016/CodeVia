@@ -1,7 +1,7 @@
 import type { FastifyRequest } from "fastify";
 import type { Container } from "../app/container.js";
 import type { Project } from "../domain/entities.js";
-import { canAccessProject, resolveRequestUser } from "./auth.js";
+import { canAccessProject, DEMO_USER_ID, resolveRequestUser } from "./auth.js";
 
 /**
  * Per-account project isolation for the definition sub-resources
@@ -49,4 +49,41 @@ export function accessibleProjectIds(req: FastifyRequest, c: Container): Set<str
 /** Load an entity's project via its `projectId` field and enforce access. */
 export function projectOfEntity(req: FastifyRequest, c: Container, projectId: string | undefined): Project | undefined {
   return resolveProjectForRequest(req, c, projectId);
+}
+
+/**
+ * Direct per-entity ownership gate (S01).
+ *
+ * By-id routes (`/tasks/:id`, `/runs/:id`, `/conversations/:id`, …) used to
+ * rely solely on the global `registerProjectStateHook` preHandler, which can
+ * only gate *indirectly*: it resolves the entity's `projectId` and applies
+ * `canAccessProject`. An entity whose `projectId` is missing or empty slipped
+ * past that hook entirely, so every by-id handler now calls this helper
+ * itself — one rule, checked at the point of use:
+ *
+ *   - Entity has a project → the caller must be able to access that project
+ *     (same rule as everywhere else: demo sees all, signed-in sees own).
+ *   - Entity has NO project → it is only reachable in demo/single-user mode;
+ *     a signed-in account gets `false` (the handler answers 404, leaking
+ *     neither existence nor ownership).
+ *
+ * Handlers must call this AFTER confirming the entity exists and answer 404
+ * for both "not found" and "not yours" so foreign ids stay indistinguishable.
+ */
+export function canAccessEntity(
+  req: FastifyRequest,
+  c: Container,
+  entity: { projectId?: string } | undefined,
+): boolean {
+  if (!entity) return false;
+  const projectId = typeof entity.projectId === "string" ? entity.projectId.trim() : "";
+  const { user } = resolveRequestUser(req, c);
+  if (!projectId) {
+    // Detached entity: demo/single-user installs keep working; a signed-in
+    // account can never prove the entity exists.
+    return !user.id || user.id === DEMO_USER_ID;
+  }
+  const project = c.projectRepo.findById(projectId)?.data;
+  if (!project) return false;
+  return canAccessProject(user, project);
 }

@@ -1,0 +1,80 @@
+name: Bug report
+description: Report something that is not behaving the way the documentation says it should.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. CodeVia audits itself with
+        `scripts/audit-pipeline.mjs` and `scripts/audit-repository-state.mjs` —
+        if you can attach their output, triage goes much faster.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: One or two sentences describing the broken behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: |
+        Steps to reproduce, ideally starting from the offline quickstart
+        (`npm install && npm run dev`, no API keys). Include the exact
+        request/page/Telegram command that fails.
+      placeholder: |
+        1. npm run dev
+        2. Create project ...
+        3. GET /tasks/...
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did it break?
+      options:
+        - Web UI
+        - REST API
+        - Telegram bot
+        - Background worker / queue
+        - Repository state (CodeVia/ sync)
+        - Tests / CI
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: How were you running it?
+      options:
+        - Fully offline (Mock AI + Mock GitHub + Mock Telegram)
+        - Real model provider, mock GitHub
+        - Real GitHub connection
+        - Docker / Railway deployment
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      description: "`git rev-parse --short HEAD` or the deployed image tag."
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output / audit results
+      description: |
+        Paste redacted logs, or the JSON output of
+        `node --import tsx scripts/audit-repository-state.mjs` when the issue
+        involves `CodeVia/` state. Never paste real tokens or keys.
+      render: shell

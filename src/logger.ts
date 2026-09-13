@@ -33,6 +33,25 @@ const COLORS: Record<string, string> = {
 const RESET = "\x1b[0m";
 
 /**
+ * Keys whose values must never reach a log sink (S06): credentials, tokens,
+ * signatures and session material. Matching is case-insensitive on the key
+ * name; the value is replaced, whatever its type.
+ */
+const SENSITIVE_KEY =
+  /(token|secret|password|passwd|authorization|cookie|credential|signature|api[_-]?key|private[_-]?key|session)/i;
+
+/** Recursively replace the values of sensitive keys with `[REDACTED]`. */
+export function redactSensitive<T>(value: T, depth = 0): T {
+  if (value === null || typeof value !== "object" || depth > 6) return value;
+  if (Array.isArray(value)) return value.map((v) => redactSensitive(v, depth + 1)) as unknown as T;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = SENSITIVE_KEY.test(k) ? "[REDACTED]" : redactSensitive(v, depth + 1);
+  }
+  return out as unknown as T;
+}
+
+/**
  * Minimal structured logger (JSON in production, human-readable in dev).
  * Swappable — Fastify/pino can replace this without touching call sites.
  */
@@ -48,7 +67,7 @@ export function createLogger(bindings: Record<string, unknown> = {}): Logger {
   function write(level: keyof typeof LEVELS, msg: string, meta?: Record<string, unknown>) {
     if (LEVELS[level] < threshold) return;
     const ts = new Date().toISOString();
-    const all = { ...bindings, ...(meta ?? {}) };
+    const all = redactSensitive({ ...bindings, ...(meta ?? {}) });
     const isProd = process.env.NODE_ENV === "production";
     const line = isProd
       ? JSON.stringify({ ts, level, msg, ...all })
